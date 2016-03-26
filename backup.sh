@@ -14,8 +14,12 @@ drive_binary='drive-linux-x64';
 date=$(date +%d%m%Y);
 backup_file_name="backups-$date.tar.bz2";
 
+#Getting the parameters
 
-function help(){
+destiny_device=$1;
+will_remove_old_files=$2;
+
+function help_func(){
 	clear
 	echo "";
 	echo "+-----------------------------------------------------------------------------+";
@@ -24,10 +28,10 @@ function help(){
 	echo "|                                                                             |";
 	echo "| SINOPSE                                                                     |";
 	echo "|  This script is used to provide scheduled backups from shared files in the  |";
-	echo "|  server	                                                                    |";
+	echo "|  server                                                                     |";
 	echo "|                                                                             |";
 	echo "| Use:                                                                        |";
-	echo "|                                                                             |";
+	echo "|     ./backup.sh <destiny> <Remove old Files>                                |";
 	echo "|                                                                             |";
 	echo "|                                                                             |";
 	echo "|                                                                             |";
@@ -185,7 +189,7 @@ function removing_old_files(){
 function finishScript(){
 	reason=$1
 	insertlog "Fatal error:$reason"
-	insertlog "------------------------------------------------fim-------------------------------------------------------"
+	insertlog "------------------------------------------------Finished-------------------------------------------------------"
  	exit;
 }
 
@@ -195,7 +199,55 @@ function datetime(){
 	echo $now;
 }
 
-create_backup_file
+function endScript(){
+	reason=$1
+	insertlog "Fatal error:$reason"
+	insertlog "------------------------------------------------End-------------------------------------------------------"
+ 	exit;
+}
 
-move_to_pendrive
+function startScript(){
+	reason=$1
+	insertlog "Fatal error:$reason"
+	insertlog "------------------------------------------------Start-------------------------------------------------------"
+ 	exit;
+}
 
+#____________________________________________________________________________________________________________________________________
+
+
+
+#Validating Parameter
+if [ $# -eq 0 ]
+	then
+	echo "No arguments provided, please check the Read me file or user the paramter 'help'";
+	exit
+fi
+
+if [ "$destiny_device" == "device" ]
+	then
+		$destiny_device='device';
+	elif [ "$destiny_device" == "cloud" ]
+		then
+			$destiny_device='cloud';
+		elif [ "$destiny_device" == "help" ]
+			then
+				clear
+				help_func
+				exit
+				else
+					echo "Unable to recognize the parameters please check the Read me file or user the paramter 'help'";
+					exit
+fi
+
+if [ "$destiny_device" == "device" ]
+	then
+		environment_checking
+		create_backup_file
+		move_to_pendrive
+	elif [ "$destiny_device" == "cloud" ] 
+		then
+			environment_checking
+			create_backup_file
+			move_to_cloud
+fi
