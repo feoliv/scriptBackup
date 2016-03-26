@@ -8,24 +8,28 @@ output_backup_path=''
 log_path=/root/log_backup
 mount_object=/dev/sdb1
 mount_path=/media/pendrive_backup
+drive_binary='drive-linux-x64';
 
 #Creating file name
 date=$(date +%d%m%Y);
 backup_file_name="backups-$date.tar.bz2";
 
 
-function inicio(){
+function help(){
 	clear
 	echo "";
 	echo "+-----------------------------------------------------------------------------+";
-	echo "|                               Script de backup                              |";
+	echo "|                               Backup Script                                 |";
 	echo "+-----------------------------------------------------------------------------+";
 	echo "|                                                                             |";
 	echo "| SINOPSE                                                                     |";
-	echo "|  Esta script é utilizada para realizar backups dos compartilhamentos deste  |";
-	echo "|  servidor                                                                   |";
+	echo "|  This script is used to provide scheduled backups from shared files in the  |";
+	echo "|  server	                                                                    |";
 	echo "|                                                                             |";
-	echo "| Opções                                                                      |";
+	echo "| Use:                                                                        |";
+	echo "|                                                                             |";
+	echo "|                                                                             |";
+	echo "|                                                                             |";
 	echo "|                                                                             |";
 	echo "|     -v                                                                      |";
 	echo "|          Debug mode.                                                        |";
@@ -123,16 +127,45 @@ function create_backup_file(){
 	fi
 }
 
-#Move temporary file to a Mount Device
+#Move backup file to a Mount Device
 function move_to_pendrive(){
 	insertlog "Moving backup file to pendrive..."
-
-	echo 0;
+	`mv /tmp/$backup_file_name $mount_path`
+	if [ $? -eq 0 ]
+		then
+			insertlog "OK - The backup file $backup_file_name has been moved to the pendrive"
+			else
+				insertlog "Unable to move the backup file into the mounted path $mount_path!"
+				`mkdir -p /backup_transition_error || mv /tmp/$backup_file_name /backup_transition_error`
+				if [ $? -eq 0 ]
+				then
+					insertlog "Warning - It wasn't possible to tranfer the backup file $backup_file_name to the pen drive to it was moved to /backup_transition_error"
+					else
+						insertlog "Unable to move the backup file $backup_file_name to any place!Please check!"
+						finishScript "UNABLE TO MOVE THE BACKUP FILE!"
+				fi
+	fi
 }
 
-
-function move_temporary_file_cloud(){
- echo 0;
+#Move the backup file into the Google Drive
+function move_to_cloud(){
+	insertlog "Moving backup file to the cloud..."
+	`$drive_binary upload -f /tmp/$backup_file_name`
+	if [ $? -eq 0 ]
+		then
+			insertlog "OK - The backup file $backup_file_name has been moved to the cloud"
+			`rm -f /tmp/$backup_file_name`
+			else
+				insertlog "Unable to move the backup file into the cloud!"
+				`mkdir -p /backup_transition_error || mv /tmp/$backup_file_name /backup_transition_error`
+				if [ $? -eq 0 ]
+				then
+					insertlog "Warning - It wasn't possible to tranfer the backup file $backup_file_name to the pen drive to it was moved to /backup_transition_error"
+					else
+						insertlog "Unable to move the backup file $backup_file_name to any place!Please check!"
+						finishScript "UNABLE TO MOVE THE BACKUP FILE!"
+				fi
+	fi
 }
 
 #Remove files older than 15 days
@@ -155,3 +188,6 @@ function datetime(){
 }
 
 create_backup_file
+
+move_to_pendrive
+
