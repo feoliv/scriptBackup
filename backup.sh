@@ -3,12 +3,15 @@
 #https://github.com/prasmussen/gdrive
 #http://linuxnewbieguide.org/?p=1078
 #Setting up the variables
-incoming_folder_path=/root/compartilhamentos
+incoming_folder_path=/root/compartilhamentos/
 output_backup_path=''
 log_path=/root/log_backup
 mount_object=/dev/sdb1
 mount_path=/media/pendrive_backup
-backup_file_name=
+
+#Creating file name
+date=$(date +%d%m%Y);
+backup_file_name="backups-$date.tar.bz2";
 
 
 function inicio(){
@@ -47,10 +50,10 @@ function inicio(){
 
 #Insert Log into the file
 function insertlog(){
-	echo ">>>>>>>>>>>>>>>";
+	echo ">>>>>>>>>>>>>>>" >> $log_path;
 	datetime >> $log_path;
 	echo $1 >> $log_path;
-	echo ">>>>>>>>>>>>>>>";
+	echo ">>>>>>>>>>>>>>>" >> $log_path;
 }
 
 #Check if there is available space to create the tem file and if there is enough space in the destiny
@@ -80,7 +83,7 @@ function environment_checking(){
 	#Checking if it is able to mount the pen drive
 	insertlog "Checking if it is able to mount the pen drive"
 
-	`mkdir -p $mount_path && mount $mount_object $mount_path`
+	`mkdir -p $mount_path || mount $mount_object $mount_path`
 
 	if [ $? -eq 0 ]
 		then
@@ -110,18 +113,20 @@ function environment_checking(){
 #Prepare backup file
 function create_backup_file(){
 	insertlog "Inicializing backup file creation..."
-	`tar -zcvf $backup_file_name $incoming_folder_path`
+	`tar -jcf /tmp/$backup_file_name $incoming_folder_path`;
 	if [ $? -eq 0 ]
 		then
-			insertlog "OK - The backup file has been created"
+			insertlog "OK - The backup file $backup_file_name has been created in /tmp"
 			else
 				insertlog "Unable to tar and compress the folder $incoming_folder_path!"
-				finishScript "Unbale to create the backup file!"
+				finishScript "Unable to create the backup file!"
 	fi
 }
 
 #Move temporary file to a Mount Device
-function move_temporary_file_local(){
+function move_to_pendrive(){
+	insertlog "Moving backup file to pendrive..."
+
 	echo 0;
 }
 
@@ -149,4 +154,4 @@ function datetime(){
 	echo $now;
 }
 
-environment_checking
+create_backup_file
