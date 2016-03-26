@@ -169,11 +169,19 @@ function move_to_cloud(){
 }
 
 #Remove files older than 15 days
+#*******ONLY FOR MOUNTED DEVICES
 function removing_old_files(){
- echo 0;
+	`find $mount_path -type f -mtime +15 -exec rm -f {}\\;`
+	if [ $? -eq 0 ]
+		then
+			insertlog "OK - The backup files older than 15 days has been removed"
+			else
+				insertlog "Unable to remove the oldest files from the device"
+				finishScript "Unable to remove old files!"
+	fi
 }
 
-#Termina a script
+#End script
 function finishScript(){
 	reason=$1
 	insertlog "Fatal error:$reason"
