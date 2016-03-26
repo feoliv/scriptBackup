@@ -4,15 +4,14 @@
 #http://linuxnewbieguide.org/?p=1078
 #Setting up the variables
 incoming_folder_path=/root/compartilhamentos/
-output_backup_path=''
-log_path=/root/log_backup
 mount_object=/dev/sdb1
 mount_path=/media/pendrive_backup
-drive_binary='drive-linux-x64';
+drive_binary="drive-linux-x64";
 
-#Creating file name
+#Creating files name
 date=$(date +%d%m%Y);
 backup_file_name="backups-$date.tar.bz2";
+log_path="/root/log_backup-$date";
 
 #Getting the parameters
 
@@ -20,7 +19,6 @@ destiny_device=$1;
 will_remove_old_files=$2;
 
 function help_func(){
-	clear
 	echo "";
 	echo "+-----------------------------------------------------------------------------+";
 	echo "|                               Backup Script                                 |";
@@ -30,26 +28,21 @@ function help_func(){
 	echo "|  This script is used to provide scheduled backups from shared files in the  |";
 	echo "|  server                                                                     |";
 	echo "|                                                                             |";
-	echo "| Use:                                                                        |";
-	echo "|     ./backup.sh <destiny> <Remove old Files>                                |";
+	echo "| Use**:                                                                      |";
+	echo "|     ./backup.sh <destiny> <remove old files>                                |";
 	echo "|                                                                             |";
+	echo "| Parameters                                                                  |";
 	echo "|                                                                             |";
+	echo "|     -destiny                                                                |";
+	echo "|          device                                                             |";
+	echo "|          cloud*                                                             |";
 	echo "|                                                                             |";
-	echo "|     -v                                                                      |";
-	echo "|          Debug mode.                                                        |";
+	echo "|     -remove old files                                                       |";
+	echo "|          yes                                                                |";
+	echo "|          no                                                                 |";
 	echo "|                                                                             |";
-	echo "|     -V                                                                      |";
-	echo "|          Script current version.                                            |";
-	echo "|                                                                             |";
-	echo "|     -F                                                                      |";
-	echo "|          Name of the file containing the original Group data.               |";
-	echo "|                                                                             |";
-	echo "|     -e                                                                      |";
-	echo "|          Internet Address from the requester of this action                 |";
-	echo "|                                                                             |";
-	echo "|     -f                                                                      |";
-	echo "|          Feedback ticket number associated to this action                   |";
-	echo "|                                                                             |";
+	echo "|  *Make sure you have configured gdrive in this server(README)               |";
+	echo "|  **Both parameters are required                                             |";
 	echo "+-----------------------------------------------------------------------------+";
 	echo " ";
 }
@@ -87,33 +80,48 @@ function environment_checking(){
 				insertlog "OK - Enough space to create temp file!"
 	fi
 
-
-	#Checking if it is able to mount the pen drive
-	insertlog "Checking if it is able to mount the pen drive"
-
-	`mkdir -p $mount_path || mount $mount_object $mount_path`
-
-	if [ $? -eq 0 ]
+	#If it is about a physical device
+	if [ "$destiny_device" == "device" ]
 		then
-			insertlog "OK - Able to mount the pen drive into the system"
-			else
-				insertlog "Unable to mount $mount_object in mount_path!"
-				finishScript "Unable to mount the pen drive!"
+			#Checking if it is able to mount the pen drive
+			insertlog "Checking if it is able to mount the pen drive"
+
+			`mkdir -p $mount_path || mount $mount_object $mount_path`
+
+			if [ $? -eq 0 ]
+				then
+					insertlog "OK - Able to mount the pen drive into the system"
+					else
+						insertlog "Unable to mount $mount_object in mount_path!"
+						finishScript "Unable to mount the pen drive!"
+			fi
+
+			
+			#Cheking if the device has enough space to receive the file
+
+			available_space_pendrive=`df $mount_path | tail -1 | awk '{print $4}'`;
+
+			#Check if the amount of files is bigger than the available space
+			if [ $current_usage_space -ge $available_space_pendrive ]
+				then
+					$missing_space=expr $current_usage_space - $available_space_pendrive;
+					insertlog "Not enough space. Missing space: $missing_space"
+					finishScript "Insuficient Space in the destiny device!"
+					else
+						insertlog "OK - Enough space in the destiny device"
+			fi
 	fi
 
-	
-	#Cheking if the device has enough space to receive the file
-
-	available_space_pendrive=`df $mount_path | tail -1 | awk '{print $4}'`;
-
-	#Check if the amount of files is bigger than the available space
-	if [ $current_usage_space -ge $available_space_pendrive ]
+	#If it is about cloud
+	if [ "$destiny_device" == "cloud" ]
 		then
-			$missing_space=expr $current_usage_space - $available_space_pendrive;
-			insertlog "Not enough space. Missing space: $missing_space"
-			finishScript "Insuficient Space in the destiny device!"
-			else
-				insertlog "OK - Enough space in the destiny device"
+			insertlog "Verifying if the gdrie is configured..."
+			number_conf_files=`find / -type d -name '.gdrive' | grep 'gdrive' -o | grep 'gdrive' -c`
+			if [ $number_conf_files -eq 0 ]
+				then
+					insertlog "There wasn't found any config folder about gdrive configuration '~/.gdrive'!"
+					finishScript "Unable to find gdrive config folder!"
+			fi
 	fi
 
 }
@@ -155,7 +163,7 @@ function move_to_pendrive(){
 function move_to_cloud(){
 	insertlog "Moving backup file to the cloud..."
 	`$drive_binary upload -f /tmp/$backup_file_name`
-	if [ $? -eq 0 ]
+	if [ $? -eq 127 ]
 		then
 			insertlog "OK - The backup file $backup_file_name has been moved to the cloud"
 			`rm -f /tmp/$backup_file_name`
@@ -175,7 +183,8 @@ function move_to_cloud(){
 #Remove files older than 15 days
 #*******ONLY FOR MOUNTED DEVICES
 function removing_old_files(){
-	`find $mount_path -type f -mtime +15 -exec rm -f {}\\;`
+	insertlog "Removing older files..."
+	`find $mount_path -type f -mtime +15 -exec rm -f {} \\;`
 	if [ $? -eq 0 ]
 		then
 			insertlog "OK - The backup files older than 15 days has been removed"
@@ -193,24 +202,23 @@ function finishScript(){
  	exit;
 }
 
+#Get the Date
 function datetime(){
-	#Getting the Date
-	now=$(date +%d/%m/%Y-%H:%M.%S);
+	now=$(date +%d/%m/%Y-%H:%M:%S);
 	echo $now;
 }
 
+#Script end
 function endScript(){
-	reason=$1
-	insertlog "Fatal error:$reason"
+	insertlog $(date +%d/%m/%Y-%H:%M.%S)
 	insertlog "------------------------------------------------End-------------------------------------------------------"
- 	exit;
+	exit;
 }
 
+#Script Start
 function startScript(){
-	reason=$1
-	insertlog "Fatal error:$reason"
+	insertlog $(date +%d/%m/%Y-%H:%M.%S)
 	insertlog "------------------------------------------------Start-------------------------------------------------------"
- 	exit;
 }
 
 #____________________________________________________________________________________________________________________________________
@@ -226,10 +234,10 @@ fi
 
 if [ "$destiny_device" == "device" ]
 	then
-		$destiny_device='device';
+		destiny_device="device";
 	elif [ "$destiny_device" == "cloud" ]
 		then
-			$destiny_device='cloud';
+			destiny_device="cloud";
 		elif [ "$destiny_device" == "help" ]
 			then
 				clear
@@ -240,6 +248,8 @@ if [ "$destiny_device" == "device" ]
 					exit
 fi
 
+startScript
+#Starting routines
 if [ "$destiny_device" == "device" ]
 	then
 		environment_checking
@@ -251,3 +261,9 @@ if [ "$destiny_device" == "device" ]
 			create_backup_file
 			move_to_cloud
 fi
+
+if [ "$will_remove_old_files" == "yes" ]
+	then
+		removing_old_files
+fi
+endScript
