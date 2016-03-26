@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#https://github.com/prasmussen/gdrive
-#http://linuxnewbieguide.org/?p=1078
 #Setting up the variables
 incoming_folder_path=/root/compartilhamentos/
 mount_object=/dev/sdb1
